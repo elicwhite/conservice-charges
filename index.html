@@ -25,142 +25,152 @@
   }
 </style>
 </head>
-<h1>Visualize your Conservice utility charges over time</h1>
-<h2>Step 1. Run this snippet in chrome's console on <a href="https://utilitiesinfo.conservice.com/BillHistory.aspx">https://utilitiesinfo.conservice.com/BillHistory.aspx</a></h1>
-<pre id="snippet"></pre>
+<body>
+  <h1>Visualize your Conservice utility charges over time</h1>
+  <h2>Step 1. Run this snippet in chrome's console on <a href="https://utilitiesinfo.conservice.com/BillHistory.aspx">https://utilitiesinfo.conservice.com/BillHistory.aspx</a></h2>
+  <pre id="snippet"></pre>
 
-<h2>Step 2. Paste the result here:</h2>
-<div>
-  <textarea id="input" rows="10" cols="50"></textarea>
-</div>
-<button id="generate-btn">Generate!</button><button id="sample-data">Try sample data</button>
-<svg class="chart" width="960" height="500"></svg>
+  <h2>Step 2. Paste the result here:</h2>
+  <div>
+    <textarea id="input" rows="10" cols="50"></textarea>
+  </div>
+  <button id="generate-btn">Generate!</button><button id="sample-data">Try sample data</button>
+  <svg class="chart" width="960" height="500"></svg>
 
-<script src="//d3js.org/d3.v4.min.js"></script>
-<script>
-fetch("console-script.js")
-  .then(res => res.text())
-  .then(script => (document.getElementById("snippet").textContent = script));
+  <script src="//d3js.org/d3.v4.min.js"></script>
+  <script>
+  fetch("console-script.js")
+    .then(res => res.text())
+    .then(script => (document.getElementById("snippet").textContent = script));
 
-const textarea = document.getElementById("input");
+  const textarea = document.getElementById("input");
 
-document.getElementById("generate-btn").addEventListener("click", () => {
-  render(JSON.parse(textarea.value));
-});
-
-document.getElementById("sample-data").addEventListener("click", () => {
-  fetch('sample-data.json').then(res => res.json()).then(render);
-});
-
-var svg = d3.select("svg"),
-  margin = { top: 20, right: 80, bottom: 30, left: 50 },
-  width = svg.attr("width") - margin.left - margin.right,
-  height = svg.attr("height") - margin.top - margin.bottom,
-  g = svg
-    .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-var x = d3.scaleTime().range([0, width]),
-  y = d3.scaleLinear().range([height, 0]),
-  z = d3.scaleOrdinal(d3.schemeCategory10);
-
-var line = d3
-  .line()
-  .curve(d3.curveBasis)
-  .x(function(d) {
-    return x(d.date);
-  })
-  .y(function(d) {
-    return y(d.price);
+  document.getElementById("generate-btn").addEventListener("click", () => {
+    render(JSON.parse(textarea.value));
   });
 
-function render(data) {
-  data = data.map(data =>
-    Object.assign({}, data, { date: new Date(data.date) })
-  );
-  var categories = Object.keys(data[0]).filter(key => key !== "date");
+  document.getElementById("sample-data").addEventListener("click", () => {
+    fetch('sample-data.json').then(res => res.json()).then(render);
+  });
 
-  var categoryData = categories.map(function(category) {
-    return {
-      id: category,
-      values: data.map(function(d) {
-        return { date: d.date, price: d[category] };
+  var svg = d3.select("svg"),
+    margin = { top: 20, right: 80, bottom: 30, left: 50 },
+    width = svg.attr("width") - margin.left - margin.right,
+    height = svg.attr("height") - margin.top - margin.bottom,
+    g = svg
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var x = d3.scaleTime().range([0, width]),
+    y = d3.scaleLinear().range([height, 0]),
+    z = d3.scaleOrdinal(d3.schemeCategory10);
+
+  var line = d3
+    .line()
+    .curve(d3.curveBasis)
+    .x(function(d) {
+      return x(d.date);
+    })
+    .y(function(d) {
+      return y(d.price);
+    });
+
+  function render(data) {
+    data = data.map(data =>
+      Object.assign({}, data, { date: new Date(data.date) })
+    );
+    var categories = Object.keys(data[0]).filter(key => key !== "date");
+
+    var categoryData = categories.map(function(category) {
+      return {
+        id: category,
+        values: data.map(function(d) {
+          return { date: d.date, price: d[category] };
+        })
+      };
+    });
+
+    x.domain(
+      d3.extent(data, function(d) {
+        return d.date;
       })
-    };
-  });
+    );
 
-  x.domain(
-    d3.extent(data, function(d) {
-      return d.date;
-    })
-  );
+    y.domain([
+      d3.min(categoryData, function(c) {
+        return d3.min(c.values, function(d) {
+          return d.price;
+        });
+      }),
+      d3.max(categoryData, function(c) {
+        return d3.max(c.values, function(d) {
+          return d.price;
+        });
+      })
+    ]);
 
-  y.domain([
-    d3.min(categoryData, function(c) {
-      return d3.min(c.values, function(d) {
-        return d.price;
+    z.domain(
+      categoryData.map(function(c) {
+        return c.id;
+      })
+    );
+
+    g
+      .append("g")
+      .attr("class", "axis axis--x")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x));
+
+    g
+      .append("g")
+      .attr("class", "axis axis--y")
+      .call(d3.axisLeft(y))
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", "0.71em")
+      .attr("fill", "#000")
+      .text("price, $");
+
+    var city = g
+      .selectAll(".city")
+      .data(categoryData)
+      .enter()
+      .append("g")
+      .attr("class", "city");
+
+    city
+      .append("path")
+      .attr("class", "line")
+      .attr("d", function(d) {
+        return line(d.values);
+      })
+      .style("stroke", function(d) {
+        return z(d.id);
       });
-    }),
-    d3.max(categoryData, function(c) {
-      return d3.max(c.values, function(d) {
-        return d.price;
+
+    city
+      .append("text")
+      .datum(function(d) {
+        return { id: d.id, value: d.values[d.values.length - 1] };
+      })
+      .attr("transform", function(d) {
+        return "translate(" + x(d.value.date) + "," + y(d.value.price) + ")";
+      })
+      .attr("x", 3)
+      .attr("dy", "0.35em")
+      .style("font", "10px sans-serif")
+      .text(function(d) {
+        return d.id;
       });
-    })
-  ]);
+  }
+  </script>
+</body>
 
-  z.domain(
-    categoryData.map(function(c) {
-      return c.id;
-    })
-  );
-
-  g
-    .append("g")
-    .attr("class", "axis axis--x")
-    .attr("transform", "translate(0," + height + ")")
-    .call(d3.axisBottom(x));
-
-  g
-    .append("g")
-    .attr("class", "axis axis--y")
-    .call(d3.axisLeft(y))
-    .append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("y", 6)
-    .attr("dy", "0.71em")
-    .attr("fill", "#000")
-    .text("price, $");
-
-  var city = g
-    .selectAll(".city")
-    .data(categoryData)
-    .enter()
-    .append("g")
-    .attr("class", "city");
-
-  city
-    .append("path")
-    .attr("class", "line")
-    .attr("d", function(d) {
-      return line(d.values);
-    })
-    .style("stroke", function(d) {
-      return z(d.id);
-    });
-
-  city
-    .append("text")
-    .datum(function(d) {
-      return { id: d.id, value: d.values[d.values.length - 1] };
-    })
-    .attr("transform", function(d) {
-      return "translate(" + x(d.value.date) + "," + y(d.value.price) + ")";
-    })
-    .attr("x", 3)
-    .attr("dy", "0.35em")
-    .style("font", "10px sans-serif")
-    .text(function(d) {
-      return d.id;
-    });
-}
-</script>
+<a href="http://github.com/tholman/github-corners" class="github-corner" aria-label="View source on Github">
+              <svg width="80" height="80" viewBox="0 0 250 250" style="position: absolute; top: 0px; right: 0px; border: 0px;" aria-hidden="true">
+                <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z" fill="#151513"></path>
+                <path class="octo-arm" d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="#ffffff" style="transform-origin: 130px 106px;"></path>
+                <path class="octo-body" d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="#ffffff"></path>
+              </svg>
+            </a>
